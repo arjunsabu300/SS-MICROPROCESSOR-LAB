@@ -1,82 +1,97 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
-int main(void)
-{
-   char label[10], opcode[10], operand[10], symbol[10], code[10], mnemonic[3], objectcode[10];
-   int locctr, start, length, address, sym_count = 0, op_found;
-   char sym_tab[50][50], sym_tab_val[50][10];
-   FILE *fp1, *fp2, *fp3, *fp4;
+#define MAX_SYMBOLS 50
+#define MAX_LENGTH 100
 
-   fp1 = fopen("output.txt", "r");
-   fp2 = fopen("objectcode.txt", "w");
-   fp3 = fopen("optab.txt", "r");
-   fp4 = fopen("symtab.txt", "r");
+typedef struct {
+    char symbol[MAX_LENGTH];
+    int address;
+} Symbol;
 
-   if (fp1 == NULL || fp2 == NULL || fp3 == NULL || fp4 == NULL) {
-      printf("Error opening file(s).\n");
-      exit(1);
-   }
+Symbol sym_tab[MAX_SYMBOLS];
+int sym_count = 0;
 
-   while (fscanf(fp4, "%s %X", symbol, &address) != EOF) {
-      strcpy(sym_tab[sym_count], symbol);
-      sprintf(sym_tab_val[sym_count], "%X", address);
-      sym_count++;
-   }
+// Function to find the address of a symbol
+int find_symbol_address(const char* symbol) {
+    for (int i = 0; i < sym_count; i++) {
+        if (strcmp(sym_tab[i].symbol, symbol) == 0) {
+            return sym_tab[i].address;
+        }
+    }
+    return -1; // Symbol not found
+}
 
-   fscanf(fp1, "%X %s %s %s", &locctr, label, opcode, operand);
+int main() {
+    char label[MAX_LENGTH], opcode[MAX_LENGTH], operand[MAX_LENGTH], code[MAX_LENGTH];
+    char mnemonic[3];
+    int locctr, start_address, length;
+    FILE *fp1, *fp2, *fp3, *fp4;
 
-   if (strcmp(opcode, "START") == 0) {
-      fprintf(fp2, "%s\t%s\t%s\n", label, opcode, operand);
-      fscanf(fp1, "%X %s %s %s", &locctr, label, opcode, operand);
-   }
+    // Open files
+    fp1 = fopen("output.txt", "r");      // Intermediate file from Pass 1
+    fp2 = fopen("object_code.txt", "w"); // Output file for object code
+    fp3 = fopen("symtab.txt", "r");      // Symbol table from Pass 1
 
-   while (strcmp(opcode, "END") != 0) {
-      op_found = 0;
-      rewind(fp3);
+    // Read symbol table from Pass 1
+    while (fscanf(fp3, "%s\t%d\n", sym_tab[sym_count].symbol, &sym_tab[sym_count].address) != EOF) {
+        sym_count++;
+    }
+    fclose(fp3);
 
-      while (fscanf(fp3, "%s %s", code, mnemonic) != EOF) {
-         if (strcmp(opcode, code) == 0) {
-            op_found = 1;
-            strcpy(objectcode, mnemonic);
+    // Read the first line of the intermediate file to get the start address
+    fscanf(fp1, "%s\t%s\t%s\t", label, opcode, operand);
+    sscanf(operand, "%X", &start_address);
+    locctr = start_address;
 
-            for (int i = 0; i < sym_count; i++) {
-               if (strcmp(operand, sym_tab[i]) == 0) {
-                  strcat(objectcode, sym_tab_val[i]);
-                  break;
-               }
+    // Write the header record
+    fprintf(fp2, "H^%s^%06X^%06X\n", label, start_address, length);
+
+    // Process each line in the intermediate file
+    while (fscanf(fp1, "%X\t%s\t%s\t", &locctr, opcode, operand) != EOF) {
+        if (strcmp(opcode, "END") == 0) {
+            break; // End of the program
+        }
+
+        // Check for machine code generation
+        if (strcmp(opcode, "WORD") == 0) {
+            fprintf(fp2, "T^%06X^03^%s\n", locctr, operand);
+        } else if (strcmp(opcode, "RESW") == 0) {
+            // No code generated for RESW
+            continue;
+        } else if (strcmp(opcode, "RESB") == 0) {
+            // No code generated for RESB
+            continue;
+        } else if (strcmp(opcode, "BYTE") == 0) {
+            // Handle BYTE directives (C' or X')
+            if (operand[0] == 'C') { // Character constant
+                fprintf(fp2, "T^%06X^%d^", locctr, strlen(operand) - 3);
+                for (int i = 2; i < strlen(operand) - 1; i++) {
+                    fprintf(fp2, "%02X", operand[i]);
+                }
+                fprintf(fp2, "\n");
+            } else if (operand[0] == 'X') { // Hexadecimal constant
+                fprintf(fp2, "T^%06X^%d^%s\n", locctr, (strlen(operand) - 3) / 2, operand + 2);
             }
-            break;
-         }
-      }
+        } else {
+            // Assume opcode is valid and get the address
+            int addr = find_symbol_address(operand);
+            if (addr != -1) {
+                fprintf(fp2, "T^%06X^03^%02X\n", locctr, addr);
+            } else {
+                printf("ERROR: Undefined symbol %s\n", operand);
+            }
+        }
+    }
 
-      if (op_found) {
-         fprintf(fp2, "%X\t%s\t%s\t%s\t%s\n", locctr, label, opcode, operand, objectcode);
-      } 
-      else if (strcmp(opcode, "WORD") == 0) {
-         sprintf(objectcode, "%06X", atoi(operand));
-         fprintf(fp2, "%X\t%s\t%s\t%s\t%s\n", locctr, label, opcode, operand, objectcode);
-      } 
-      else if (strcmp(opcode, "BYTE") == 0) {
-         int len = strlen(operand) - 3;
-         strncpy(objectcode, operand + 2, len);
-         objectcode[len] = '\0';
-         fprintf(fp2, "%X\t%s\t%s\t%s\t%s\n", locctr, label, opcode, operand, objectcode);
-      } 
-      else if (strcmp(opcode, "RESW") == 0 || strcmp(opcode, "RESB") == 0) {
-         fprintf(fp2, "%X\t%s\t%s\t%s\n", locctr, label, opcode, operand);
-      }
+    // Write the end record
+    fprintf(fp2, "E^%06X\n", start_address);
+    
+    // Cleanup
+    fclose(fp1);
+    fclose(fp2);
 
-      fscanf(fp1, "%X %s %s %s", &locctr, label, opcode, operand);
-   }
-
-   fprintf(fp2, "%X\t%s\t%s\t%s\n", locctr, label, opcode, operand);
-
-   fclose(fp1);
-   fclose(fp2);
-   fclose(fp3);
-   fclose(fp4);
-
-   return 0;
+    printf("Object code generated in object_code.txt\n");
+    return 0;
 }
