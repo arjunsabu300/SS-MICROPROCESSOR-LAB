@@ -2,11 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_LINE_LENGTH 100
-#define MAX_LABEL_LENGTH 10
-#define MAX_OPCODE_LENGTH 10
-#define MAX_MACHINE_CODE_LENGTH 3
-
+// Define the structures for Symbol, Opcode, and TextRecord
 typedef struct Symbol {
     char label[MAX_LABEL_LENGTH];
     int address;
@@ -26,10 +22,12 @@ typedef struct TextRecord {
     struct TextRecord* next;
 } TextRecord;
 
+// Define the linked list pointers
 Symbol* symbolTable = NULL;
 Opcode* opcodeTable = NULL;
 TextRecord* textRecords = NULL;
 
+// Function to add a symbol to the symbol table
 void addSymbol(char* label, int address) {
     Symbol* newSymbol = (Symbol*)malloc(sizeof(Symbol));
     strcpy(newSymbol->label, label);
@@ -38,6 +36,7 @@ void addSymbol(char* label, int address) {
     symbolTable = newSymbol;
 }
 
+// Function to get the address of a symbol from the symbol table
 int getSymbolAddress(char* label) {
     Symbol* current = symbolTable;
     while (current != NULL) {
@@ -49,6 +48,7 @@ int getSymbolAddress(char* label) {
     return -1;
 }
 
+// Function to add an opcode to the opcode table
 void addOpcode(char* opcode, char* machineCode) {
     Opcode* newOpcode = (Opcode*)malloc(sizeof(Opcode));
     strcpy(newOpcode->opcode, opcode);
@@ -57,6 +57,7 @@ void addOpcode(char* opcode, char* machineCode) {
     opcodeTable = newOpcode;
 }
 
+// Function to get the machine code of an opcode from the opcode table
 char* getMachineCode(char* opcode) {
     Opcode* current = opcodeTable;
     while (current != NULL) {
@@ -68,6 +69,7 @@ char* getMachineCode(char* opcode) {
     return NULL;
 }
 
+// Function to add a text record to the list of text records
 void addTextRecord(int address, char* machineCode, int operandAddress) {
     TextRecord* newTextRecord = (TextRecord*)malloc(sizeof(TextRecord));
     newTextRecord->address = address;
@@ -77,6 +79,7 @@ void addTextRecord(int address, char* machineCode, int operandAddress) {
     textRecords = newTextRecord;
 }
 
+// Function to load the opcode table from a file
 void loadOpcodeTable(char* filename) {
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
@@ -95,6 +98,7 @@ void loadOpcodeTable(char* filename) {
     fclose(file);
 }
 
+// Function to generate the object code from the input file
 void generateObjectCode(char* inputFilename, char* outputFilename) {
     FILE* inputFile = fopen(inputFilename, "r");
     FILE* outputFile = fopen(outputFilename, "w");
