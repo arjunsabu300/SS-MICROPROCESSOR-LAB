@@ -1,167 +1,164 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
 
-// Define the structures for Symbol, Opcode, and TextRecord
-typedef struct Symbol {
-    char label[MAX_LABEL_LENGTH];
-    int address;
-    struct Symbol* next;
-} Symbol;
+  FILE *fp1,*fp2,*fp3,*fp4,*fp5;
+  char label[20],operand[20],opcode[20],t1[20],op[20],add[20],hex[20],a[10],obj[20];
+  int start,locctr,i,j,flag,size,k=0,x,s=0,length;
 
-typedef struct Opcode {
-    char opcode[MAX_OPCODE_LENGTH];
-    char machineCode[MAX_MACHINE_CODE_LENGTH];
-    struct Opcode* next;
-} Opcode;
+struct sym
+{
+  char sym[20];
+  int co;
+}sy[20];
 
-typedef struct TextRecord {
-    int address;
-    char machineCode[MAX_MACHINE_CODE_LENGTH];
-    int operandAddress;
-    struct TextRecord* next;
-} TextRecord;
+struct optab
+{
+  char code[20],mem[20];
+}op1[20];
 
-// Define the linked list pointers
-Symbol* symbolTable = NULL;
-Opcode* opcodeTable = NULL;
-TextRecord* textRecords = NULL;
-
-// Function to add a symbol to the symbol table
-void addSymbol(char* label, int address) {
-    Symbol* newSymbol = (Symbol*)malloc(sizeof(Symbol));
-    strcpy(newSymbol->label, label);
-    newSymbol->address = address;
-    newSymbol->next = symbolTable;
-    symbolTable = newSymbol;
+void readoptab()
+{
+ while(1)
+ {
+  s++;
+  fscanf(fp2,"%s%s",op1[s].code,op1[s].mem);
+  if(getc(fp2)==EOF)
+    break;
+ } 
 }
 
-// Function to get the address of a symbol from the symbol table
-int getSymbolAddress(char* label) {
-    Symbol* current = symbolTable;
-    while (current != NULL) {
-        if (strcmp(current->label, label) == 0) {
-            return current->address;
+int main()
+{
+
+  fp1=fopen("pass1co.txt","r");
+  fp2=fopen("pass1tab.txt","r");
+  fp4=fopen("Obj11.txt","w+");
+  fp5=fopen("objtxt.txt","w");
+  readoptab();
+
+  fscanf(fp1,"%s%s%s",label,opcode,operand);
+  if(strcmp(opcode,"START")==0)
+  {
+    start=strtol(operand,NULL,16);
+    locctr=(0x1)*start;
+    fprintf(fp5,"**\t%s\t%s\t%s\t**\n",label,opcode,operand);
+    fscanf(fp1,"%s%s%s",label,opcode,operand);
+  }
+  else
+  {
+    locctr=0;
+  }
+
+ while(strcmp(opcode,"END")!=0)
+  {
+    fprintf(fp5,"%x\t",locctr);
+    if(strcmp(label,"**")==0)
+    {
+      for(i=0;i<=k;i++)
+      {
+        if(strcmp(sy[i].sym,operand)==0)
+        {
+          x=sy[i].co;
         }
-        current = current->next;
+      } 
+    for(i=0;i<=s;i++)
+    {
+      if(strcmp(op1[i].code,opcode)==0)
+      {
+        locctr+=0x3;
+        size=size+3;
+        fprintf(fp5,"%s\t%s\t%s\t%s%x\n",label,opcode,operand,op1[i].mem,x);
+        break;
+      }
     }
-    return -1;
-}
+   }      
+   else if(strcmp(opcode,"WORD")==0)
+     {
+      k++;
+       sy[k].co=locctr;
+       locctr+=0x3;
+       size=size+3;
+       sprintf(a,"%x",atoi(operand));
+       strcpy(sy[k].sym,label);
+       fprintf(fp5,"%s\t%s\t%s\t00000%s\n",label,opcode,operand,a);
+     }
+    else if(strcmp(opcode,"RESW")==0)
+     {  
+        k++;
+       sy[k].co=locctr;     
+       locctr+=((0x3)*(atoi(operand)));
+       strcpy(sy[k].sym,label);
+       fprintf(fp5,"%s\t%s\t%s\t**\n",label,opcode,operand);
+     } 
+    else if(strcmp(opcode,"RESB")==0)
+     { 
+        k++;
+       sy[k].co=locctr;      
+       locctr+=(0x1)*atoi(operand);
+       strcpy(sy[k].sym,label);
+       fprintf(fp5,"%s\t%s\t%s\t**\n",label,opcode,operand);
+     }
+    else if(strcmp(opcode,"BYTE")==0)
+     {       
+       int len=strlen(operand);
+       if(operand[0]=='C' || operand[0]=='c')
+       {
+         len=len-3;
+       }
+       else
+       {
+         len=(len-3)/2;
+       }
+        k++;
+       sy[k].co=locctr; 
+       locctr+=(0x1)*len;
+       size=size+len;
+       strcpy(sy[k].sym,label);       
+       j=0;
+     for(i=2;i<strlen(operand)-1;i++)
+     {
+       sprintf(hex + j,"%02x",operand[i]);
+       j+=2;
+     }
+       fprintf(fp5,"%s\t%s\t%s\t%s\n",label,opcode,operand,hex);      
+     }
+     fscanf(fp1,"%s%s%s",label,opcode,operand);
+  }
 
-// Function to add an opcode to the opcode table
-void addOpcode(char* opcode, char* machineCode) {
-    Opcode* newOpcode = (Opcode*)malloc(sizeof(Opcode));
-    strcpy(newOpcode->opcode, opcode);
-    strcpy(newOpcode->machineCode, machineCode);
-    newOpcode->next = opcodeTable;
-    opcodeTable = newOpcode;
-}
+  fprintf(fp5,"%x\t%s\t%s\t%s\t**\n",locctr,label,opcode,operand);
+  length=locctr-start;
 
-// Function to get the machine code of an opcode from the opcode table
-char* getMachineCode(char* opcode) {
-    Opcode* current = opcodeTable;
-    while (current != NULL) {
-        if (strcmp(current->opcode, opcode) == 0) {
-            return current->machineCode;
-        }
-        current = current->next;
+  fclose(fp1);
+  fclose(fp2);
+  fclose(fp5);
+
+  fp5=fopen("objtxt.txt","r");
+  fscanf(fp5,"%s%s%s%s%s",add,label,opcode,operand,obj);
+  if(strcmp(opcode,"START")==0)
+  {
+    fprintf(fp4,"H^%s  ^00%x^0000%x\n",label,start,length);
+    fscanf(fp5,"%s%s%s%s%s",add,label,opcode,operand,obj);
+    fprintf(fp4,"T^00%s^%x^%s",add,size,obj);
+    fscanf(fp5,"%s%s%s%s%s",add,label,opcode,operand,obj);
+  }
+  else
+   {
+     locctr=0;
+   }
+  while(strcmp(opcode,"END")!=0)
+  {
+    if(strcmp(obj,"**")!=0)
+    {
+          fprintf(fp4,"^%s",obj);
     }
-    return NULL;
-}
+    fscanf(fp5,"%s%s%s%s%s",add,label,opcode,operand,obj);
+  } 
 
-// Function to add a text record to the list of text records
-void addTextRecord(int address, char* machineCode, int operandAddress) {
-    TextRecord* newTextRecord = (TextRecord*)malloc(sizeof(TextRecord));
-    newTextRecord->address = address;
-    strcpy(newTextRecord->machineCode, machineCode);
-    newTextRecord->operandAddress = operandAddress;
-    newTextRecord->next = textRecords;
-    textRecords = newTextRecord;
-}
+  fprintf(fp4,"\nE^00%x\n",start);
 
-// Function to load the opcode table from a file
-void loadOpcodeTable(char* filename) {
-    FILE* file = fopen(filename, "r");
-    if (file == NULL) {
-        perror("Error opening opcode table file");
-        exit(EXIT_FAILURE);
-    }
+  fclose(fp5);
+  fclose(fp4);
 
-    char line[MAX_LINE_LENGTH];
-    while (fgets(line, sizeof(line), file)) {
-        char opcode[MAX_OPCODE_LENGTH];
-        char machineCode[MAX_MACHINE_CODE_LENGTH];
-        sscanf(line, "%s %s", opcode, machineCode);
-        addOpcode(opcode, machineCode);
-    }
-
-    fclose(file);
-}
-
-// Function to generate the object code from the input file
-void generateObjectCode(char* inputFilename, char* outputFilename) {
-    FILE* inputFile = fopen(inputFilename, "r");
-    FILE* outputFile = fopen(outputFilename, "w");
-    if (inputFile == NULL || outputFile == NULL) {
-        perror("Error opening input or output file");
-        exit(EXIT_FAILURE);
-    }
-
-    char line[MAX_LINE_LENGTH];
-    int locationCounter = 0;
-    int startAddress = 0;
-    char programName[MAX_LABEL_LENGTH] = "";
-    char textRecords[MAX_LINE_LENGTH][MAX_MACHINE_CODE_LENGTH];
-    int textRecordCount = 0;
-
-    while (fgets(line, sizeof(line), inputFile)) {
-        char label[MAX_LABEL_LENGTH] = "", opcode[MAX_OPCODE_LENGTH] = "", operand[MAX_LABEL_LENGTH] = "";
-        int fields = sscanf(line, "%s %s %s", label, opcode, operand);
-
-        if (fields == 3 && strcmp(label, "*") != 0) {
-            addSymbol(label, locationCounter);
-        }
-
-        if (fields >= 2) {
-            if (strcmp(opcode, "START") == 0) {
-                startAddress = strtol(operand, NULL, 16);
-                locationCounter = startAddress;
-                strcpy(programName, label);
-                fprintf(outputFile, "H%s  %06X%06X\n", programName, startAddress, 0); // Length to be filled later
-            } else if (strcmp(opcode, "END") == 0) {
-                break;
-            } else {
-                char* machineCode = getMachineCode(opcode);
-                int address = (operand[0] != '*') ? getSymbolAddress(operand) : 0;
-                addTextRecord(locationCounter, machineCode, address);
-                textRecordCount++;
-                locationCounter += 3;
-            }
-        }
-
-        if (fields == 1 && strcmp(label, "END") == 0) {
-            break;
-        }
-    }
-
-    int programLength = locationCounter - startAddress;
-    fseek(outputFile, 0, SEEK_SET);
-    fprintf(outputFile, "H%s  %06X%06X\n", programName, startAddress, programLength);
-
-    TextRecord* current = textRecords;
-    while (current != NULL) {
-        fprintf(outputFile, "T%06X%s%04X\n", current->address, current->machineCode, current->operandAddress);
-        current = current->next;
-    }
-
-    fprintf(outputFile, "E%06X\n", startAddress);
-
-    fclose(inputFile);
-    fclose(outputFile);
-}
-
-int main() {
-    loadOpcodeTable("opcode_table.txt");
-    generateObjectCode("input.txt", "object_code.txt");
-    return 0;
+  return 0;
 }
