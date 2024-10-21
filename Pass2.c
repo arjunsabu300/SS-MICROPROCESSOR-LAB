@@ -102,12 +102,12 @@ void read_line()
 
 int main()
 {
-    fp1=fopen("output.txt", "r");
+    fp1=fopen("intermediate.txt", "r");
     fp2=fopen("symtab.txt", "r");
     fp3=fopen("optab.txt", "r");
     fp4=fopen("length.txt", "r");
-    fp5=fopen("assmlist.txt", "w");
-    fp6=fopen("objectcode.txt", "w");
+    fp5=fopen("output.txt", "w");
+    fp6=fopen("object_program.txt", "w");
 
     if (fp1==NULL||fp2==NULL||fp3==NULL||fp4==NULL||fp5==NULL||fp6==NULL)
     {
@@ -125,9 +125,9 @@ int main()
 
     if (strcmp(opcode,"START")==0)
     {
-        fprintf(fp5,"%s\t%s\t%s\t%s\n",address,label,opcode,operand);
+        fprintf(fp5,"%s\t%s\t%s\t%s\n",address,label,opcode,operand); // Print header line in assembly listing
         fprintf(fp6,"H^%s^00%s^0000%s\n",label,operand,length);
-        fprintf(fp6,"T^00%s^F",operand);
+        fprintf(fp6,"T^00%s^%s",operand,size);
         read_line();
     }
 
@@ -135,36 +135,40 @@ int main()
     {
         if (strcmp(opcode,"BYTE")==0)
         {
+            // Handle BYTE directive
             if (operand[0]=='C')
             {
-                fprintf(fp5,"%s\t%s\t%s\t%s\t",address,label,opcode,operand);
+                fprintf(fp5,"%s\t%s\t%s\t%s\t",address,label,opcode,operand); // Print assembly
                 for (i=2;operand[i]!='\'';i++)
                 {
-                    sprintf(ad,"%x",operand[i]);
-                    fprintf(fp5,"%s",ad);
-                    fprintf(fp6,"^%s",ad);
+                    sprintf(ad,"%x",operand[i]);  // Convert character to hex
+                    fprintf(fp5,"%s",ad);         // Print object code
+                    fprintf(fp6,"^%s",ad);        // Write object code to object file
                 }
                 fprintf(fp5, "\n");
             }
             else if(operand[0] == 'X')
             {
-                strncpy(ad,operand + 2,strlen(operand) - 3);
+                strncpy(ad,operand + 2,strlen(operand) - 3);  // Extract hex value
                 fprintf(fp5,"%s\t%s\t%s\t%s\t%s\n",address,label,opcode,operand,ad);
                 fprintf(fp6,"^%s",ad);
             }
         }
         else if(strcmp(opcode, "WORD")==0)
         {
-            sprintf(a, "%06x", atoi(operand));
+            // Handle WORD directive
+            sprintf(a, "%06x", atoi(operand));  // Convert to 6-digit hex
             fprintf(fp5, "%s\t%s\t%s\t%s\t%s\n", address, label, opcode, operand, a);
             fprintf(fp6, "^%s", a);
         }
         else if (strcmp(opcode, "RESW") == 0 || strcmp(opcode, "RESB") == 0)
         {
+            // For RESW and RESB, print the line but no object code is generated
             fprintf(fp5, "%s\t%s\t%s\t%s\n", address, label, opcode, operand);
         }
-	 else
+        else
         {
+            // Look for opcode in OPTAB
             i = 0;
             while (i <= o && strcmp(opcode, OT[i].opcode) != 0)
             {
@@ -177,6 +181,7 @@ int main()
             }
             else
             {
+                // Look for operand in SYMTAB
                 j = 0;
                 while (j <= s && strcmp(operand, ST[j].label) != 0)
                 {
@@ -194,11 +199,11 @@ int main()
                 }
             }
         }
-        read_line();
+        read_line();  // Move to the next line in the intermediate file.
     }
 
     fprintf(fp5,"%s\t%s\t%s\t%s\t%s\n","*",label,opcode,operand,"*");
-    fprintf(fp6,"\nE^00%s\n",st_addr);
+    fprintf(fp6,"\nE^00%s\n",st_addr);  // Write end record to object code
 
     fclose(fp1);
     fclose(fp2);
