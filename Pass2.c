@@ -1,209 +1,129 @@
 #include <stdio.h>
-#include <string.h>
-#include <math.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 
-char t1[20],t2[20],t3[20],t4[10],address[10],label[10],opcode[10],operand[10],length[10],size[10],a[10],ad[10],st_addr[10];
-int s=-1,o=-1,i,j;
+#define tsize 10
+#define SIZE 50
 
-FILE *fp1,*fp2,*fp3,*fp4,*fp5,*fp6;
-
-struct SYNTAB
+void main()
 {
-    char label[10];
-    char addr[10];
-} ST[30];
+    FILE *fp1,*fp2,*fp3,*fp4,*fp5,*fp6;
+    char label[SIZE],opcode[SIZE],operand[SIZE],locctr[SIZE],opvalue[SIZE],mnemonic[SIZE],symbol[SIZE],address[SIZE],obj_code[SIZE],error_desc[SIZE];
+    int start,op_found,sym_found,error=0,operand_value,t_length=0,obj_generated;
+    char size[SIZE],length[SIZE];
 
-struct OPTAB
-{
-    char opcode[10];
-    char hexcode[10];
-} OT[30];
+    fp1=fopen("intermediate.txt","r");
+    fp2=fopen("optab.txt","r");
+    fp3=fopen("symtab.txt","r");
+    fp4=fopen("length.txt","r");
+    fp5=fopen("output.txt","w");
+    fp6=fopen("object_program.txt","w");
 
-void read_optab()
-{
-    while(1)
+    fscanf(fp1,"%s\t%s\t%s\t%s",locctr,label,opcode,operand);
+    //fscanf(fp4,"%s\t%s\t%s",length,size);
+    if(strcmp(opcode,"START") == 0)
     {
-        o++;
-        fscanf(fp3,"%s %s",OT[o].opcode,OT[o].hexcode);
-        if (getc(fp3) == EOF)
-        {
-            break;
-        }
+        fprintf(fp5,"\t%s\t%s\t%s\n",label,opcode,operand);
+        sscanf(operand,"%d",&start);
+        fprintf(fp6,"H^%-6s^00%d^0000%s\n",label,start,size);
+        fprintf(fp6,"T^00%d^00",start);
     }
-}
 
-void read_symtab()
-{
-    while (1)
+    fscanf(fp1,"%s\t%s\t%s\t%s",locctr,label,opcode,operand);
+    while(strcmp(opcode,"END") != 0 && error == 0)
     {
-        s++;
-        fscanf(fp2, "%s %s", ST[s].label, ST[s].addr);
-        if (getc(fp2) == EOF)
+        obj_generated=0;
+        if(strcmp(label,"-") != 0)
         {
-            break;
-        }
-    }
-}
-
-void read_line()
-{
-    strcpy(t1,"");
-    strcpy(t2,"");
-    strcpy(t3,"");
-    strcpy(t4,"");
-
-    fscanf(fp1,"%s",t1);
-    if (getc(fp1)!='\n')
-    {
-        fscanf(fp1,"%s",t2);
-        if (getc(fp1)!='\n')
-        {
-            fscanf(fp1, "%s", t3);
-            if (getc(fp1) != '\n')
+            op_found=0;
+            while(fscanf(fp2,"%s\t%s",opvalue,mnemonic) != EOF)
             {
-                fscanf(fp1, "%s", t4);
-            }
-        }
-    }
-
-    if (strcmp(t1,"")!=0 && strcmp(t2,"")!=0 && strcmp(t3,"")!=0 && strcmp(t4,"") != 0)
-    {
-        strcpy(address, t1);
-        strcpy(label, t2);
-        strcpy(opcode, t3);
-        strcpy(operand, t4);
-    }
-    else if (strcmp(t1,"")!=0 && strcmp(t2,"")!=0 && strcmp(t3,"")!=0 && strcmp(t4,"")==0)
-    {
-        strcpy(address, t1);
-        strcpy(label, "");
-        strcpy(opcode, t2);
-        strcpy(operand, t3);
-    }
-    else if (strcmp(t1,"")!=0 && strcmp(t2,"")!=0 && strcmp(t3,"")==0 && strcmp(t4,"")==0)
-    {
-        if (strcmp(t1,"END")==0)
-        {
-            strcpy(address,"");
-            strcpy(label,"");
-            strcpy(opcode,t1);
-            strcpy(operand,t2);
-        }
-        else
-        {
-            strcpy(address,t1);
-            strcpy(label,"");
-            strcpy(opcode,t2);
-            strcpy(operand, "");
-        }
-    }
-}
-
-int main()
-{
-    fp1=fopen("intermediate.txt", "r");
-    fp2=fopen("symtab.txt", "r");
-    fp3=fopen("optab.txt", "r");
-    fp4=fopen("length.txt", "r");
-    fp5=fopen("output.txt", "w");
-    fp6=fopen("object_program.txt", "w");
-
-    if (fp1==NULL||fp2==NULL||fp3==NULL||fp4==NULL||fp5==NULL||fp6==NULL)
-    {
-        printf("Error opening files\n");
-        return 1;
-    }
-
-    fscanf(fp4,"%s\t%s\t",length,size);
-
-    read_optab();
-    read_symtab();
-
-    fscanf(fp1,"%s\t%s\t%s\t",label,opcode,operand);
-    strcpy(st_addr,operand);
-
-    if (strcmp(opcode,"START")==0)
-    {
-        fprintf(fp5,"%s\t%s\t%s\t%s\n",address,label,opcode,operand); // Print header line in assembly listing
-        fprintf(fp6,"H^%s^00%s^0000%s\n",label,operand,length);
-        fprintf(fp6,"T^00%s^%s",operand,size);
-        read_line();
-    }
-
-    while (strcmp(opcode,"END")!=0)
-    {
-        if (strcmp(opcode,"BYTE")==0)
-        {
-            // Handle BYTE directive
-            if (operand[0]=='C')
-            {
-                fprintf(fp5,"%s\t%s\t%s\t%s\t",address,label,opcode,operand); // Print assembly
-                for (i=2;operand[i]!='\'';i++)
+                if(strcmp(opcode,opvalue) == 0)
                 {
-                    sprintf(ad,"%x",operand[i]);  // Convert character to hex
-                    fprintf(fp5,"%s",ad);         // Print object code
-                    fprintf(fp6,"^%s",ad);        // Write object code to object file
+                    op_found=1;
+                    strcat(obj_code,mnemonic);
+                    if(isalpha(operand[0]))
+                    {
+                        sym_found=0;
+                        while(fscanf(fp3,"%s\t%s\t",symbol,address) != EOF)
+                        {
+                            if(strcmp(symbol,operand) == 0)
+                            {
+                                sym_found=1;
+                                strcat(obj_code,address);
+                                obj_generated=1;
+                                break;
+                            }
+                        }
+                        if(sym_found == 0)
+                        {
+                            error=1;
+                            strcat(error_desc,"ERROR : UNDEFINED SYMBOL");
+                            strcat(error_desc,operand);
+                        }
+                        rewind(fp3);
+                    }
+                    break;
                 }
-                fprintf(fp5, "\n");
             }
-            else if(operand[0] == 'X')
+            rewind(fp2);
+            if (op_found == 0)
             {
-                strncpy(ad,operand + 2,strlen(operand) - 3);  // Extract hex value
-                fprintf(fp5,"%s\t%s\t%s\t%s\t%s\n",address,label,opcode,operand,ad);
-                fprintf(fp6,"^%s",ad);
-            }
-        }
-        else if(strcmp(opcode, "WORD")==0)
-        {
-            // Handle WORD directive
-            sprintf(a, "%06x", atoi(operand));  // Convert to 6-digit hex
-            fprintf(fp5, "%s\t%s\t%s\t%s\t%s\n", address, label, opcode, operand, a);
-            fprintf(fp6, "^%s", a);
-        }
-        else if (strcmp(opcode, "RESW") == 0 || strcmp(opcode, "RESB") == 0)
-        {
-            // For RESW and RESB, print the line but no object code is generated
-            fprintf(fp5, "%s\t%s\t%s\t%s\n", address, label, opcode, operand);
-        }
-        else
-        {
-            // Look for opcode in OPTAB
-            i = 0;
-            while (i <= o && strcmp(opcode, OT[i].opcode) != 0)
-            {
-                i++;
-            }
-
-            if (i > o)
-            {
-                printf("Error: Opcode %s not found in OPTAB\n", opcode);
-            }
-            else
-            {
-                // Look for operand in SYMTAB
-                j = 0;
-                while (j <= s && strcmp(operand, ST[j].label) != 0)
+                if (strcmp(opcode, "WORD") == 0)
                 {
-                    j++;
+                    // Convert operand to integer and append it to obj_code as a hexadecimal string
+                       sscanf(operand, "%d", &operand_value); // Assuming WORD is in decimal format
+                       char operand_str[10];
+                       sprintf(operand_str, "%06X", operand_value);  // Convert to a 6-digit hexadecimal string
+                       strcat(obj_code, operand_str);  // Concatenate operand as a string
+                       obj_generated=1;
                 }
-
-                if (j > s)
+                else if (strcmp(opcode, "BYTE") == 0)
                 {
-                    printf("Error: Operand %s not found in SYMTAB\n",operand);
-                }
-                else
-                {
-                    fprintf(fp5,"%s\t%s\t%s\t%s\t%s%s\n",address,label,opcode,operand,OT[i].hexcode,ST[j].addr);
-                    fprintf(fp6,"^%s%s",OT[i].hexcode,ST[j].addr);
+                    if (operand[0] == 'X')
+                    {
+                        // Handle BYTE with hexadecimal value
+                        strncpy(obj_code, &operand[2], strlen(operand) - 3);  // Skip X'...'
+                        obj_generated=1;
+                    }
+                    else if (operand[0] == 'C')
+                    {
+                        // Handle BYTE with character value
+                        for (int i = 2; i < strlen(operand) - 1; i++)
+                        {
+                            char byte_val[3];
+                            sprintf(byte_val, "%02X", operand[i]);  // Convert each char to hex
+                            strcat(obj_code, byte_val);
+                            obj_generated=1;
+                        }
+                    }
                 }
             }
         }
-        read_line();  // Move to the next line in the intermediate file.
+        if(obj_generated)
+        {
+            fprintf(fp6,"^%s",obj_code);
+            t_length+=3;
+        }
+        fprintf(fp5,"%s\t%s\t%s\t%s\t%s\n",locctr,label,opcode,operand,obj_code);
+        strcpy(obj_code,"");
+        fscanf(fp1,"%s\t%s\t%s\t%s",locctr,label,opcode,operand);
     }
 
-    fprintf(fp5,"%s\t%s\t%s\t%s\t%s\n","*",label,opcode,operand,"*");
-    fprintf(fp6,"\nE^00%s\n",st_addr);  // Write end record to object code
+    if(error == 1)
+    {
+        printf("%s\n",error_desc);
+    }
+    else
+    {
+        fseek(fp6,30,SEEK_SET);
+        fprintf(fp6,"%-2X",t_length);
+        fseek(fp6,0,SEEK_END);
+        fprintf(fp6,"\nE^00%d\n",start);
+        fprintf(fp5,"\t\t%s\n",opcode);
+        printf("ASSEMBLED SUCCESSFULLY\n");
+    }
 
     fclose(fp1);
     fclose(fp2);
@@ -211,6 +131,4 @@ int main()
     fclose(fp4);
     fclose(fp5);
     fclose(fp6);
-
-    return 0;
 }
